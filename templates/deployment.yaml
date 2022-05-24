@@ -1,0 +1,80 @@
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: rabbitmq
+spec:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 800m
+      memory: 2Gi
+  service:
+    type: LoadBalancer
+  override:
+    service:
+      spec:
+          ports:
+            - name: web-ui
+              protocol: TCP
+              port: 80
+              targetPort: 15672
+
+# Vhost
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Vhost
+metadata:
+  name: test-resource # name of this custom resource
+  namespace: rabbitmq
+spec:
+  name: TEST # name of the vhost
+  rabbitmqClusterReference:
+    name: rabbitmq
+
+# User
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: rabbitmq-user
+spec:
+  tags: # available tags are 'management', 'policymaker', 'monitoring' and 'administrator'
+  - management
+  - policymaker
+  - monitoring
+  rabbitmqClusterReference:
+    name: rabbitmq
+  importCredentialsSecret:
+    name: rabbitmq-user-cred
+
+# Secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-user-cred
+type: Opaque
+stringData:
+  username: rabbitmq-user
+  password: verystrongpassword
+
+# Permmission
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: rabbitmq-user-prem
+spec:
+  vhost: "TEST"
+  user: "rabbitmq-user" # name corresponds to the username we provided in "rabbitmq-user-cred" secret
+  permissions:
+    write: ".*"
+    configure: ".*"
+    read: ".*"
+  rabbitmqClusterReference:
+    name: rabbitmq
+
